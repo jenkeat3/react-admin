@@ -3,7 +3,10 @@
 var React = require('react');
 var Router = require('react-router');
 var AuthorForm = require('./authorForm');
-var AuthorApi = require('../../api/authorApi');
+var AuthorActions = require('../../actions/authorActions');
+var AuthorStore = require('../../stores/authorStore');
+
+
 var Toaster = require('toastr');
 
 var ManageAuthorPage = React.createClass({
@@ -11,14 +14,36 @@ var ManageAuthorPage = React.createClass({
 		Router.Navigation
 	],
 
+	statics: {
+		willTransitionFrom: function(transition, component) {
+			// our component not yet save
+			if (component.state.dirty && !confirm('Leave without saving?')) {
+				// Cancel and do not move
+				transition.abort();
+			}
+		}
+	},
+
 	getInitialState: function() {
 		return {
 			author: {id: '', firstName: '', lastName: ''},
-			errors: {}
+			errors: {},
+			dirty: false
 		};
 	},
 
+	componentWillMount: function() {
+		// Calling this method/function will not cause re-render
+		var authorId = this.props.params.id; //from the path '/author:id'
+
+		if (authorId) {
+			this.setState({ author: AuthorStore.getAuthorById(authorId)});
+		}
+
+	},
+
 	_setAuthorState: function(event) {
+		this.setState({dirty: true});
 		var field = event.target.name;
 		var value = event.target.value;
 
@@ -49,7 +74,14 @@ var ManageAuthorPage = React.createClass({
 		if (!this._authorFormIsValid()){
 			return;
 		}
-		AuthorApi.saveAuthor(this.state.author);
+
+		if (this.state.author.id) {
+			AuthorActions.updateAuthor(this.state.author);
+		} else {
+			AuthorActions.createAuthor(this.state.author);
+		}
+		
+		this.setState({dirty: false});
 		Toaster.success('Author saved.');
 		this.transitionTo('authors');
 	},
